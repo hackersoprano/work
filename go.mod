@@ -1,4 +1,4 @@
-module workspace
+module work
 
 go 1.25
 

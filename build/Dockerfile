@@ -3,14 +3,14 @@ FROM golang:1.25-alpine
 WORKDIR /app
 
 # Копируем файлы зависимостей
-COPY go.mod go.sum ./
+COPY ../go.mod go.sum ./
 
 # Загружаем зависимости
 RUN go mod download
 
 # Копируем исходный код
-COPY main.go .
-
+#COPY ../cmd/server/main.go .
+COPY . .
 # Собираем приложение
 RUN go build -o main .
 

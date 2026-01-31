@@ -14,6 +14,7 @@ func main() {
 	}
 	defer db.Close()
 
+	api.SetDB(db)
 	// Настройка маршрутов
 	router := api.SetupRoutes()
 

@@ -12,10 +12,10 @@ RUN go mod download
 #COPY ../cmd/server/main.go .
 COPY . .
 # Собираем приложение
-RUN go build -o main .
+RUN go build -o app ./cmd/server
 
 # Открываем порт
 EXPOSE 8080
 
 # Команда запуска
-CMD ["./main"]
+CMD ["./app"]

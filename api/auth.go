@@ -5,9 +5,15 @@ import (
 	"work/models"
 	"work/services"
 
+	"github.com/jmoiron/sqlx"
 	"github.com/labstack/echo/v4"
 )
 
+var db *sqlx.DB
+
+func SetDB(database *sqlx.DB) {
+	db = database
+}
 func Login(c echo.Context) error {
 	var req models.LoginRequest
 	if err := c.Bind(&req); err != nil { //получение и преобразование из json в удобный для go структуру

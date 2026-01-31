@@ -1,6 +1,7 @@
 package services
 
 import (
+	"fmt"
 	"os"
 	"time"
 	"work/models"
@@ -12,6 +13,9 @@ import (
 var JwtSecret = []byte(os.Getenv("JWT_SECRET"))
 
 func GenerateToken(userID int, login string, role string) (string, error) {
+	if len(JwtSecret) == 0 {
+		return "", fmt.Errorf("JWT_SECRET не установлен")
+	}
 	claims := &models.Jwt_user{ //формируем "пакет с данными"
 		UserID: userID,
 		Login:  login,

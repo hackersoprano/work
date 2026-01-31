@@ -1,16 +1,14 @@
 package api
 
 import (
+	"database/sql"
 	"net/http"
 	"strconv"
 	"work/models"
 	"work/services"
 
-	"github.com/jmoiron/sqlx"
 	"github.com/labstack/echo/v4"
 )
-
-var db *sqlx.DB
 
 func GetAll(c echo.Context) error {
 	var users []models.User //создание пустого массива
@@ -168,7 +166,7 @@ func DeleteUser(c echo.Context) error {
 	var user models.User
 	err := db.Get(&user, "SELECT id, login, password, role FROM users WHERE id = $1", id)
 	if err != nil {
-		if err.Error() == "sql: нет строк в результате запрос" {
+		if err == sql.ErrNoRows {
 			return c.JSON(http.StatusNotFound, map[string]string{"error": "Пользователь не найден"})
 		}
 		return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})

@@ -9,6 +9,12 @@ type User struct {
 	Role     string `json:"role" db:"role"`
 }
 
+type AllUser struct {
+	ID    int    `json:"id" db:"id"`
+	Login string `json:"login" db:"login"`
+	Role  string `json:"role" db:"role"`
+}
+
 type Jwt_user struct { //структура jwt токена
 	UserID int    `json:"user_id"`
 	Login  string `json:"login"`

@@ -1,4 +1,4 @@
-FROM golang:1.25-alpine
+FROM golang:1.25-alpine AS builder
 
 WORKDIR /app
 
@@ -13,6 +13,12 @@ RUN go mod download
 COPY . .
 # Собираем приложение
 RUN go build -o app ./cmd/server
+
+FROM alpine:latest
+
+WORKDIR /app
+
+COPY --from=builder /app/app .
 
 # Открываем порт
 EXPOSE 8080

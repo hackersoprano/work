@@ -1,6 +1,7 @@
 package api
 
 import (
+	"context"
 	"database/sql"
 	"net/http"
 	"strconv"
@@ -11,19 +12,24 @@ import (
 )
 
 func GetAll(c echo.Context) error {
-	var users []models.User //создание пустого массива
+	ctx, cancel := context.WithTimeout(c.Request().Context(), GetTimeout)
+	defer cancel()
+
+	var allUsers []models.AllUser //создание пустого массива
 
 	// Select автоматически сканирует результаты
-	err := db.Select(&users, "SELECT login FROM users ORDER BY login") //запрос select
+	err := db.SelectContext(ctx, &allUsers, "SELECT id,login,role FROM users ORDER BY login") //запрос select
 	if err != nil {
 		return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
 	}
 
 	// Используем StatusOK для GET запросов
-	return c.JSON(http.StatusOK, users)
+	return c.JSON(http.StatusOK, allUsers)
 }
 
 func CreateUser(c echo.Context) error {
+	ctx, cancel := context.WithTimeout(c.Request().Context(), PostTimeout)
+	defer cancel()
 	user := new(models.User) //создаем пустую структуру
 
 	if err := c.Bind(user); err != nil { //заполняем из json запроса
@@ -37,8 +43,8 @@ func CreateUser(c echo.Context) error {
 	}
 
 	// Проверяем, существует ли пользователь!
-	var exists bool                                                                           //true and false с этим помогает exist postgresql
-	err := db.Get(&exists, "SELECT EXISTS(SELECT 1 FROM users WHERE login = $1)", user.Login) //exists возращается true если произошло первое совпаеднеи
+	var exists bool                                                                                       //true and false с этим помогает exist postgresql
+	err := db.GetContext(ctx, &exists, "SELECT EXISTS(SELECT 1 FROM users WHERE login = $1)", user.Login) //exists возращается true если произошло первое совпаеднеи
 	if err != nil {
 		return c.JSON(http.StatusInternalServerError, map[string]string{
 			"error": "Ошибка базы данных",
@@ -79,6 +85,8 @@ func CreateUser(c echo.Context) error {
 }
 
 func UpdateUser(c echo.Context) error {
+	ctx, cancel := context.WithTimeout(c.Request().Context(), PostTimeout)
+	defer cancel()
 	idStr := c.Param("id")
 	id, err := strconv.Atoi(idStr)
 	if err != nil {
@@ -92,7 +100,7 @@ func UpdateUser(c echo.Context) error {
 
 	// Проверяем существование сотрудника
 	var count int
-	err = db.Get(&count, "SELECT COUNT(*) FROM users WHERE id = $1", id)
+	err = db.GetContext(ctx, &count, "SELECT COUNT(*) FROM users WHERE id = $1", id)
 	if err != nil || count == 0 {
 		return c.JSON(http.StatusNotFound, map[string]string{"error": "Данного пользователя не существует"})
 	}
@@ -100,7 +108,7 @@ func UpdateUser(c echo.Context) error {
 	user.ID = id
 	//проверяем заполнение login
 	var currentUser models.User
-	err = db.Get(&currentUser, "SELECT id, login, role FROM users WHERE id = $1", id)
+	err = db.GetContext(ctx, &currentUser, "SELECT id, login, role FROM users WHERE id = $1", id)
 	if err != nil {
 		return c.JSON(http.StatusNotFound, map[string]string{"error": "Данного пользователя не существует"})
 	}
@@ -152,7 +160,7 @@ func UpdateUser(c echo.Context) error {
 	}
 
 	// Получаем обновленные данные
-	err = db.Get(user, "SELECT id, login, password, role FROM users WHERE id = $1", id)
+	err = db.GetContext(ctx, user, "SELECT id, login, password, role FROM users WHERE id = $1", id)
 	if err != nil {
 		return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
 	}
@@ -160,11 +168,13 @@ func UpdateUser(c echo.Context) error {
 	return c.JSON(http.StatusOK, user)
 }
 func DeleteUser(c echo.Context) error {
+	ctx, cancel := context.WithTimeout(c.Request().Context(), PostTimeout)
+	defer cancel()
 	id := c.Param("id")
 
 	// Проверяем существование сотрудника
 	var user models.User
-	err := db.Get(&user, "SELECT id, login, password, role FROM users WHERE id = $1", id)
+	err := db.GetContext(ctx, &user, "SELECT id, login, password, role FROM users WHERE id = $1", id)
 	if err != nil {
 		if err == sql.ErrNoRows {
 			return c.JSON(http.StatusNotFound, map[string]string{"error": "Пользователь не найден"})
@@ -181,7 +191,7 @@ func DeleteUser(c echo.Context) error {
 	}
 
 	// Удаляем сотрудника
-	result, err := db.Exec("DELETE FROM users WHERE id = $1", id)
+	result, err := db.ExecContext(ctx, "DELETE FROM users WHERE id = $1", id)
 	if err != nil {
 		return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
 	}

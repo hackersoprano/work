@@ -1,12 +1,19 @@
 package api
 
 import (
+	"context"
 	"net/http"
+	"time"
 	"work/models"
 	"work/services"
 
 	"github.com/jmoiron/sqlx"
 	"github.com/labstack/echo/v4"
+)
+
+const (
+	PostTimeout = 5 * time.Second  //время на отправку
+	GetTimeout  = 10 * time.Second //время на получение информации
 )
 
 var db *sqlx.DB
@@ -21,9 +28,13 @@ func Login(c echo.Context) error {
 			"error": "Неверный формат данных",
 		})
 	}
+
+	ctx, cancel := context.WithTimeout(c.Request().Context(), PostTimeout)
+	defer cancel()
+
 	// Ищем пользователя в базе
 	var user models.User
-	err := db.Get(&user,
+	err := db.GetContext(ctx, &user,
 		"SELECT * FROM users WHERE login = $1",
 		req.Login)
 

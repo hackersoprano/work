@@ -45,7 +45,9 @@ func CreateUser(c echo.Context) error {
 	}
 	//хэшируем пароль
 	user.Password = services.HashPassword(user.Password)
-
+	if user.Role == "" {
+		user.Role = "user"
+	}
 	// Named query с использованием структуры
 	query := `INSERT INTO users (login, password, role) 
 		          VALUES (:login, :password, :role) 
@@ -195,7 +197,7 @@ func DeleteUser(c echo.Context) error {
 	if rowsAffected == 0 {
 		return c.JSON(http.StatusNotFound, map[string]string{"error": "Пользователь не найден"})
 	}
-
+	user.Password = ""
 	return c.JSON(http.StatusOK, map[string]interface{}{
 		"message":      "Сотрудник успешно удален",
 		"deleted_user": user,

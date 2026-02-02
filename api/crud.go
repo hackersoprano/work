@@ -3,8 +3,10 @@ package api
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"net/http"
 	"strconv"
+	"strings"
 	"work/models"
 	"work/services"
 
@@ -41,24 +43,7 @@ func CreateUser(c echo.Context) error {
 			"error": "Логин и пароль обязательны",
 		})
 	}
-
-	// Проверяем, существует ли пользователь!
-	var exists bool                                                                                       //true and false с этим помогает exist postgresql
-	err := db.GetContext(ctx, &exists, "SELECT EXISTS(SELECT 1 FROM users WHERE login = $1)", user.Login) //exists возращается true если произошло первое совпаеднеи
-	if err != nil {
-		return c.JSON(http.StatusInternalServerError, map[string]string{
-			"error": "Ошибка базы данных",
-		})
-	}
-
-	if exists {
-		return c.JSON(http.StatusConflict, map[string]string{
-			"error": "Пользователь уже существует",
-		})
-	}
-
-	//если все ок -> хэшируем пароль
-
+	//хэшируем пароль
 	user.Password = services.HashPassword(user.Password)
 
 	// Named query с использованием структуры
@@ -67,9 +52,15 @@ func CreateUser(c echo.Context) error {
 		          RETURNING id, login, password, role` //возвращение созданную запись
 
 	// NamedQuery + StructScan для удобной работы
-	rows, err := db.NamedQuery(query, user) //выполняем запрос и берем данные из user
+	rows, err := db.NamedQueryContext(ctx, query, user) //выполняем запрос и берем данные из user
 	if err != nil {
-		return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
+		// Проверяем, если это ошибка уникальности
+		if strings.Contains(err.Error(), "unique") || strings.Contains(err.Error(), "duplicate") {
+			return c.JSON(http.StatusConflict, map[string]string{
+				"error": "Пользователь уже существует",
+			})
+		}
+		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Ошибка базы данных"})
 	}
 	defer rows.Close() //обязательно закрываем строки результата, даже при ошибке
 
@@ -110,7 +101,10 @@ func UpdateUser(c echo.Context) error {
 	var currentUser models.User
 	err = db.GetContext(ctx, &currentUser, "SELECT id, login, role FROM users WHERE id = $1", id)
 	if err != nil {
-		return c.JSON(http.StatusNotFound, map[string]string{"error": "Данного пользователя не существует"})
+		if errors.Is(err, sql.ErrNoRows) {
+			return c.JSON(http.StatusNotFound, map[string]string{"error": "Данного пользователя не существует"})
+		}
+		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Ошибка базы данных"})
 	}
 	//
 	if user.Login == "" {
@@ -121,48 +115,44 @@ func UpdateUser(c echo.Context) error {
 	}
 
 	//проверка пароль изменен или нет.
-	if user.Password != "" {
-		user.Password = services.HashPassword(user.Password)
-		query := `UPDATE users 
-		          SET login = :login, password = :password, role = :role 
-		          WHERE id = :id`
-		result, err := db.NamedExec(query, user)
 
-		if err != nil {
-			return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
-		}
-		// Проверяем количество обновленных строк
-		rowsAffected, err := result.RowsAffected()
-		if err != nil {
-			return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
-		}
-
-		if rowsAffected == 0 {
-			return c.JSON(http.StatusNotFound, map[string]string{"error": "Пользователь не найден"})
-		}
+	if user.Password == "" {
+		user.Password = currentUser.Password
 	} else {
-		query := `UPDATE users 
-		          SET login = :login, role = :role 
-		          WHERE id = :id`
-		result, err := db.NamedExec(query, user)
-		if err != nil {
-			return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
-		}
-		// Проверяем количество обновленных строк
-		rowsAffected, err := result.RowsAffected()
-		if err != nil {
-			return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
-		}
+		user.Password = services.HashPassword(user.Password)
+	}
+	query := `UPDATE users 
+              SET login = :login, password = :password, role = :role 
+              WHERE id = :id`
+	result, err := db.NamedExecContext(ctx, query, user)
 
-		if rowsAffected == 0 {
-			return c.JSON(http.StatusNotFound, map[string]string{"error": "Пользователь не найден"})
+	if err != nil {
+		// Проверяем, возможно, проблема с уникальностью логина
+		if strings.Contains(err.Error(), "unique") {
+			return c.JSON(http.StatusConflict, map[string]string{
+				"error": "Пользователь с таким логином уже существует",
+			})
 		}
+		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Ошибка базы данных"})
+	}
+	rowsAffected, err := result.RowsAffected()
+	if err != nil {
+		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Ошибка базы данных"})
+	}
+
+	if rowsAffected == 0 {
+		// На случай, если пользователь был удален параллельно
+		return c.JSON(http.StatusNotFound, map[string]string{"error": "Пользователь не найден"})
 	}
 
 	// Получаем обновленные данные
 	err = db.GetContext(ctx, user, "SELECT id, login, password, role FROM users WHERE id = $1", id)
 	if err != nil {
-		return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
+		// Даже если запись не найдена после обновления - это странно, но обрабатываем
+		if errors.Is(err, sql.ErrNoRows) {
+			return c.JSON(http.StatusNotFound, map[string]string{"error": "Пользователь не найден"})
+		}
+		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Ошибка базы данных"})
 	}
 	user.Password = "" //скрываем пароль(хэш)
 	return c.JSON(http.StatusOK, user)

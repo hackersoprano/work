@@ -2,6 +2,8 @@ package api
 
 import (
 	"context"
+	"database/sql"
+	"errors"
 	"net/http"
 	"time"
 	"work/models"
@@ -39,8 +41,15 @@ func Login(c echo.Context) error {
 		req.Login)
 
 	if err != nil {
-		return c.JSON(http.StatusUnauthorized, map[string]string{
-			"error": "Неверный логин или пароль ",
+		// Используем errors.Is для сравнения ошибок
+		if errors.Is(err, sql.ErrNoRows) {
+			return c.JSON(http.StatusUnauthorized, map[string]string{
+				"error": "Неверный логин или пароль",
+			})
+		}
+		// Для других ошибок базы данных
+		return c.JSON(http.StatusInternalServerError, map[string]string{
+			"error": "Ошибка сервера",
 		})
 	}
 	// Проверяем пароль

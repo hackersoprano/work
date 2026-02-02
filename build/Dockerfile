@@ -1,21 +1,27 @@
-FROM golang:1.25-alpine
+FROM golang:1.25-alpine AS builder
 
 WORKDIR /app
 
 # Копируем файлы зависимостей
-COPY go.mod go.sum ./
+COPY ../go.mod go.sum ./
 
 # Загружаем зависимости
 RUN go mod download
 
 # Копируем исходный код
-COPY main.go .
-
+#COPY ../cmd/server/main.go .
+COPY . .
 # Собираем приложение
-RUN go build -o main .
+RUN go build -o app ./cmd/server
+
+FROM alpine:latest
+
+WORKDIR /app
+
+COPY --from=builder /app/app .
 
 # Открываем порт
 EXPOSE 8080
 
 # Команда запуска
-CMD ["./main"]
+CMD ["./app"]

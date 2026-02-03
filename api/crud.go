@@ -97,6 +97,12 @@ func DeleteUser(c echo.Context) error {
 		}
 		return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
 	}
+	currentUserID := c.Get("user_id").(int)
+	if id == currentUserID {
+		return c.JSON(http.StatusBadRequest, map[string]string{
+			"error": "Нельзя удалить самого себя",
+		})
+	}
 
 	return c.JSON(http.StatusOK, map[string]string{
 		"message": "Пользователь удален",

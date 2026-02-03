@@ -118,5 +118,6 @@ func (s *UserServiceDb) DeleteUser(ctx context.Context, id int) error {
 	if rowsAffected == 0 {
 		return errors.New("пользователь не найден")
 	}
+
 	return nil
 }

@@ -107,6 +107,16 @@ func (s *UserServiceDb) UpdateUser(ctx context.Context, id int, user *models.Use
 }
 
 func (s *UserServiceDb) DeleteUser(ctx context.Context, id int) error {
-	_, err := s.db.ExecContext(ctx, "DELETE FROM users WHERE id = $1", id)
-	return err
+	result, err := s.db.ExecContext(ctx, "DELETE FROM users WHERE id = $1", id)
+	if err != nil {
+		return err
+	}
+	rowsAffected, err := result.RowsAffected()
+	if err != nil {
+		return err
+	}
+	if rowsAffected == 0 {
+		return errors.New("пользователь не найден")
+	}
+	return nil
 }

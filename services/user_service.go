@@ -80,25 +80,29 @@ func (s *UserServiceDb) CreateUser(ctx context.Context, user *models.User) error
 
 func (s *UserServiceDb) UpdateUser(ctx context.Context, id int, user *models.User) error {
 	user.ID = id
-	//------------------------TODO---------------------------------переделать обновление пароля
+	var currentUser models.User
+	err := s.db.GetContext(ctx, &currentUser, "SELECT id, login, password, role FROM users WHERE id = $1", id)
+	if err != nil {
+		return err
+	}
 	if user.Login == "" {
-		user.Login = user.Login
+		user.Login = currentUser.Login
 	}
 	if user.Role == "" {
-		user.Role = user.Role
+		user.Role = currentUser.Role
 	}
 
 	//проверка пароль изменен или нет.
 
 	if user.Password == "" {
-		user.Password = user.Password
+		user.Password = currentUser.Password
 	} else {
 		user.Password = HashPassword(user.Password)
 	}
 	query := `UPDATE users 
               SET login = :login, password = :password, role = :role 
               WHERE id = :id`
-	_, err := s.db.NamedExecContext(ctx, query, user)
+	_, err = s.db.NamedExecContext(ctx, query, user)
 	return err
 }
 

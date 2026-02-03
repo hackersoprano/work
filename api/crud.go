@@ -3,6 +3,7 @@ package api
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"net/http"
 	"strconv"
 	"work/models"
@@ -91,7 +92,7 @@ func DeleteUser(c echo.Context) error {
 	// Используем интерфейс UserService
 	err = userService.DeleteUser(ctx, id)
 	if err != nil {
-		if err == sql.ErrNoRows {
+		if errors.Is(err, sql.ErrNoRows) {
 			return c.JSON(http.StatusNotFound, map[string]string{"error": "Пользователь не найден"})
 		}
 		return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})

@@ -52,15 +52,17 @@ func (s *UserServiceDb) GetAllUsers(ctx context.Context) ([]models.AllUser, erro
 func (s *UserServiceDb) CreateUser(ctx context.Context, user *models.User) error {
 	// Хэшируем пароль
 	user.Password = HashPassword(user.Password)
-
+	if user.Role == "" {
+		user.Role = "user"
+	}
 	query := `INSERT INTO users (login, password, role) 
 	          VALUES (:login, :password, :role) 
 	          RETURNING id`
 
 	rows, err := s.db.NamedQueryContext(ctx, query, user)
 	if err != nil {
-		if strings.Contains(err.Error(), "unique") {
-			return errors.New("пользователь с таким логином уже существует")
+		if strings.Contains(err.Error(), "unique") || strings.Contains(err.Error(), "duplicate") {
+			return errors.New("пользователь уже существует")
 		}
 		return err
 	}
@@ -79,14 +81,23 @@ func (s *UserServiceDb) CreateUser(ctx context.Context, user *models.User) error
 func (s *UserServiceDb) UpdateUser(ctx context.Context, id int, user *models.User) error {
 	user.ID = id
 	//------------------------TODO---------------------------------переделать обновление пароля
-	if user.Password != "" {
-		user.Password = HashPassword(user.Password)
-		query := `UPDATE users SET login = :login, password = :password, role = :role WHERE id = :id`
-		_, err := s.db.NamedExecContext(ctx, query, user)
-		return err
+	if user.Login == "" {
+		user.Login = user.Login
+	}
+	if user.Role == "" {
+		user.Role = user.Role
 	}
 
-	query := `UPDATE users SET login = :login, role = :role WHERE id = :id`
+	//проверка пароль изменен или нет.
+
+	if user.Password == "" {
+		user.Password = user.Password
+	} else {
+		user.Password = HashPassword(user.Password)
+	}
+	query := `UPDATE users 
+              SET login = :login, password = :password, role = :role 
+              WHERE id = :id`
 	_, err := s.db.NamedExecContext(ctx, query, user)
 	return err
 }

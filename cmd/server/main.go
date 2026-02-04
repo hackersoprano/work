@@ -3,6 +3,7 @@ package main
 import (
 	"log"
 	"work/api"
+	"work/services"
 	"work/storages/postgres"
 )
 
@@ -14,7 +15,8 @@ func main() {
 	}
 	defer db.Close()
 
-	api.SetDB(db)
+	userService := services.NewUserService(db)
+	api.SetService(userService)
 	// Настройка маршрутов
 	router := api.SetupRoutes()
 

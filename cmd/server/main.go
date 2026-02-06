@@ -25,7 +25,7 @@ func main() {
 	defer storage.Close()
 
 	userService := services.NewUserService(storage)
-
+	api.SetService(userService)
 	server := api.New(userService)
 
 	ctx, _ := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)

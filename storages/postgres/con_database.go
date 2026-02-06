@@ -69,9 +69,6 @@ func (s *Storage) CreateUser(ctx context.Context, user *models.User) error {
 
 	rows, err := s.db.NamedQueryContext(ctx, query, user)
 	if err != nil {
-		return errors.New("пользователь не найден")
-	}
-	if err != nil {
 		if strings.Contains(err.Error(), "unique") || strings.Contains(err.Error(), "duplicate") {
 			return errors.New("пользователь уже существует")
 		}

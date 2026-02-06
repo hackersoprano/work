@@ -1,7 +1,10 @@
 package main
 
 import (
+	"context"
 	"log"
+	"os/signal"
+	"syscall"
 	"work/api"
 	"work/services"
 	"work/storages/postgres"
@@ -9,20 +12,33 @@ import (
 
 func main() {
 	// Инициализация БД
-	db, err := postgres.NewConnection()
+	//db, err := postgres.NewConnection()
+	//if err != nil {
+	//	log.Fatal("Failed to connect to database:", err)
+	//}
+	//defer db.Close()
+
+	storage, err := postgres.NewConnection()
 	if err != nil {
 		log.Fatal("Failed to connect to database:", err)
 	}
-	defer db.Close()
+	defer storage.Close()
 
-	userService := services.NewUserService(db)
-	api.SetService(userService)
-	// Настройка маршрутов
-	router := api.SetupRoutes()
+	userService := services.NewUserService(storage)
 
-	// Запуск сервера
-	log.Println("Starting server on :8080")
-	if err := router.Start(":8080"); err != nil {
-		log.Fatal("Server failed:", err)
+	server := api.New(userService)
+
+	ctx, _ := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
+
+	go func() {
+		log.Println("Starting server")
+		_ = server.Run(":8080")
+	}()
+
+	<-ctx.Done()
+
+	log.Println("Shutting down server")
+	if err = server.Stop(ctx); err != nil {
+		log.Fatal(err)
 	}
 }

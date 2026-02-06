@@ -15,9 +15,9 @@ const (
 	GetTimeout  = 10 * time.Second //время на получение информации
 )
 
-var userService services.UserService
+var userService UserService
 
-func SetService(userSvc services.UserService) {
+func SetService(userSvc UserService) {
 	userService = userSvc
 }
 

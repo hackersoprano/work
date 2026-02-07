@@ -84,7 +84,7 @@ func (s *Storage) CreateUser(ctx context.Context, user *models.User) error {
 	}
 	return nil
 }
-func (s *Storage) UpdateUser(ctx context.Context, id int, user *models.User) error {
+func (s *Storage) UpdateUser(ctx context.Context, user *models.User) error {
 	query := `UPDATE users 
               SET login = :login, password = :password, role = :role 
               WHERE id = :id`

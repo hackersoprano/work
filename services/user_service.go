@@ -66,6 +66,7 @@ func (s *UserServiceDb) CreateUser(ctx context.Context, user *models.User) error
 }
 
 func (s *UserServiceDb) UpdateUser(ctx context.Context, id int, user *models.User) error {
+	user.ID = id
 	currentUser, err := s.db.GetUserByLogin(ctx, user.Login)
 	if err != nil && !errors.Is(err, sql.ErrNoRows) {
 		return err
@@ -84,7 +85,7 @@ func (s *UserServiceDb) UpdateUser(ctx context.Context, id int, user *models.Use
 	} else {
 		user.Password = HashPassword(user.Password)
 	}
-	return s.db.UpdateUser(ctx, id, user)
+	return s.db.UpdateUser(ctx, user)
 }
 
 func (s *UserServiceDb) DeleteUser(ctx context.Context, id int) error {

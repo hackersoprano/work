@@ -16,7 +16,7 @@ func GenerateToken(userID int, login string, role string) (string, error) {
 	if len(JwtSecret) == 0 {
 		return "", fmt.Errorf("JWT_SECRET не установлен")
 	}
-	claims := &models.Jwt_user{ //формируем "пакет с данными"
+	claims := &models.JwtUser{ //формируем "пакет с данными"
 		UserID: userID,
 		Login:  login,
 		Role:   role,

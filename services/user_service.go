@@ -67,7 +67,7 @@ func (s *UserServiceDb) CreateUser(ctx context.Context, user *models.User) error
 
 func (s *UserServiceDb) UpdateUser(ctx context.Context, id int, user *models.User) error {
 	user.ID = id
-	currentUser, err := s.db.GetUserByLogin(ctx, user.Login)
+	currentUser, err := s.db.GetUserById(ctx, id)
 	if err != nil && !errors.Is(err, sql.ErrNoRows) {
 		return err
 	}

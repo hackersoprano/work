@@ -54,6 +54,17 @@ func (s *Storage) GetUserByLogin(ctx context.Context, login string) (*models.Use
 	}
 	return &user, nil
 }
+func (s *Storage) GetUserById(ctx context.Context, id int) (*models.User, error) {
+	var user models.User
+	err := s.db.GetContext(ctx, &user, "SELECT * FROM users where id = $1", id)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, errors.New("Пользователь не найден")
+		}
+		return nil, err
+	}
+	return &user, nil
+}
 func (s *Storage) GetAllUsers(ctx context.Context) ([]models.AllUser, error) {
 	var users []models.AllUser
 	err := s.db.SelectContext(ctx, &users, "SELECT id, login, role FROM users ORDER BY login")

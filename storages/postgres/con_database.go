@@ -63,11 +63,16 @@ func (s *Storage) GetAllUsers(ctx context.Context) ([]models.AllUser, error) {
 	return users, nil
 }
 func (s *Storage) CreateUser(ctx context.Context, user *models.User) error {
+	tx, err := s.db.BeginTxx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
 	query := `INSERT INTO users (login, password, role) 
 	          VALUES (:login, :password, :role) 
 	          RETURNING id`
 
-	rows, err := s.db.NamedQueryContext(ctx, query, user)
+	rows, err := tx.NamedQuery(query, user)
 	if err != nil {
 		if strings.Contains(err.Error(), "unique") || strings.Contains(err.Error(), "duplicate") {
 			return errors.New("пользователь уже существует")
@@ -82,13 +87,18 @@ func (s *Storage) CreateUser(ctx context.Context, user *models.User) error {
 			return err
 		}
 	}
-	return nil
+	return tx.Commit()
 }
 func (s *Storage) UpdateUser(ctx context.Context, user *models.User) error {
+	tx, err := s.db.BeginTxx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
 	query := `UPDATE users 
               SET login = :login, password = :password, role = :role 
               WHERE id = :id`
-	result, err := s.db.NamedExecContext(ctx, query, user)
+	result, err := tx.NamedExecContext(ctx, query, user)
 	if err != nil {
 		return err
 	}
@@ -100,10 +110,15 @@ func (s *Storage) UpdateUser(ctx context.Context, user *models.User) error {
 		return errors.New("ошибка обновления данных")
 	}
 
-	return nil
+	return tx.Commit()
 }
 func (s *Storage) DeleteUser(ctx context.Context, id int) error {
-	result, err := s.db.ExecContext(ctx, "DELETE FROM users WHERE id = $1", id)
+	tx, err := s.db.BeginTxx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+	result, err := tx.ExecContext(ctx, "DELETE FROM users WHERE id = $1", id)
 	if err != nil {
 		return err
 	}
@@ -114,5 +129,5 @@ func (s *Storage) DeleteUser(ctx context.Context, id int) error {
 	if rowsAffected == 0 {
 		return errors.New("пользователь не найден")
 	}
-	return nil
+	return tx.Commit()
 }

@@ -30,7 +30,7 @@ func AuthMiddleware(next echo.HandlerFunc) echo.HandlerFunc {
 		tokenString := parts[1] //записываем токен в переменную
 
 		// Проверяем токен
-		token, err := jwt.ParseWithClaims(tokenString, &models.Jwt_user{}, func(token *jwt.Token) (interface{}, error) { //
+		token, err := jwt.ParseWithClaims(tokenString, &models.JwtUser{}, func(token *jwt.Token) (interface{}, error) { //
 			if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
 				return nil, fmt.Errorf("неожиданный метод подписи: %v", token.Header["alg"])
 			}
@@ -43,7 +43,7 @@ func AuthMiddleware(next echo.HandlerFunc) echo.HandlerFunc {
 			})
 		}
 		//извлекаем данные о пользователе
-		if claims, ok := token.Claims.(*models.Jwt_user); ok && token.Valid {
+		if claims, ok := token.Claims.(*models.JwtUser); ok && token.Valid {
 			// Сохраняем данные пользователя в контекст
 			c.Set("user_id", claims.UserID)
 			c.Set("user_login", claims.Login)

@@ -6,29 +6,26 @@ import (
 	"errors"
 	"strings"
 	"work/models"
-
-	"github.com/jmoiron/sqlx"
 )
 
 type UserServiceDb struct {
-	db *sqlx.DB
+	db Storage
 }
 
-func NewUserService(db *sqlx.DB) *UserServiceDb {
+func NewUserService(db Storage) *UserServiceDb {
 	return &UserServiceDb{db: db}
 }
 
 //метод авторизации
 
 func (s *UserServiceDb) Authenticate(ctx context.Context, login, password string) (*models.User, error) {
-	var user models.User
 
-	err := s.db.GetContext(ctx, &user, "SELECT * FROM users WHERE login = $1", login)
+	user, err := s.db.GetUserByLogin(ctx, login)
 	if err != nil {
-		if errors.Is(err, sql.ErrNoRows) {
-			return nil, errors.New("пользователь не найден")
-		}
 		return nil, err
+	}
+	if user == nil {
+		return nil, errors.New("Пользователь не найден")
 	}
 
 	// Проверяем пароль
@@ -36,17 +33,11 @@ func (s *UserServiceDb) Authenticate(ctx context.Context, login, password string
 	if user.Password != hashedPassword {
 		return nil, errors.New("неверный пароль")
 	}
-	return &user, nil
+	return user, nil
 }
 
 func (s *UserServiceDb) GetAllUsers(ctx context.Context) ([]models.AllUser, error) {
-	var users []models.AllUser
-	err := s.db.SelectContext(ctx, &users, "SELECT id, login, role FROM users ORDER BY login")
-	if err != nil {
-		return nil, err
-	}
-
-	return users, nil
+	return s.db.GetAllUsers(ctx)
 }
 
 func (s *UserServiceDb) CreateUser(ctx context.Context, user *models.User) error {
@@ -55,34 +46,29 @@ func (s *UserServiceDb) CreateUser(ctx context.Context, user *models.User) error
 	if user.Role == "" {
 		user.Role = "user"
 	}
-	query := `INSERT INTO users (login, password, role) 
-	          VALUES (:login, :password, :role) 
-	          RETURNING id`
-
-	rows, err := s.db.NamedQueryContext(ctx, query, user)
+	err := s.db.CreateUser(ctx, user)
 	if err != nil {
 		if strings.Contains(err.Error(), "unique") || strings.Contains(err.Error(), "duplicate") {
 			return errors.New("пользователь уже существует")
 		}
 		return err
 	}
-	defer rows.Close()
-
-	if rows.Next() {
-		err = rows.Scan(&user.ID)
-		if err != nil {
-			return err
-		}
-	}
+	//defer rows.Close()
+	//
+	//if rows.Next() {
+	//	err = rows.Scan(&user.ID)
+	//	if err != nil {
+	//		return err
+	//	}
+	//}
 
 	return nil
 }
 
 func (s *UserServiceDb) UpdateUser(ctx context.Context, id int, user *models.User) error {
 	user.ID = id
-	var currentUser models.User
-	err := s.db.GetContext(ctx, &currentUser, "SELECT id, login, password, role FROM users WHERE id = $1", id)
-	if err != nil {
+	currentUser, err := s.db.GetUserById(ctx, id)
+	if err != nil && !errors.Is(err, sql.ErrNoRows) {
 		return err
 	}
 	if user.Login == "" {
@@ -99,25 +85,9 @@ func (s *UserServiceDb) UpdateUser(ctx context.Context, id int, user *models.Use
 	} else {
 		user.Password = HashPassword(user.Password)
 	}
-	query := `UPDATE users 
-              SET login = :login, password = :password, role = :role 
-              WHERE id = :id`
-	_, err = s.db.NamedExecContext(ctx, query, user)
-	return err
+	return s.db.UpdateUser(ctx, user)
 }
 
 func (s *UserServiceDb) DeleteUser(ctx context.Context, id int) error {
-	result, err := s.db.ExecContext(ctx, "DELETE FROM users WHERE id = $1", id)
-	if err != nil {
-		return err
-	}
-	rowsAffected, err := result.RowsAffected()
-	if err != nil {
-		return err
-	}
-	if rowsAffected == 0 {
-		return errors.New("пользователь не найден")
-	}
-
-	return nil
+	return s.db.DeleteUser(ctx, id)
 }

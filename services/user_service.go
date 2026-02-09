@@ -53,14 +53,6 @@ func (s *UserServiceDb) CreateUser(ctx context.Context, user *models.User) error
 		}
 		return err
 	}
-	//defer rows.Close()
-	//
-	//if rows.Next() {
-	//	err = rows.Scan(&user.ID)
-	//	if err != nil {
-	//		return err
-	//	}
-	//}
 
 	return nil
 }

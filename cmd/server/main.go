@@ -12,18 +12,19 @@ import (
 
 func main() {
 	// Инициализация БД
-	//db, err := postgres.NewConnection()
-	//if err != nil {
-	//	log.Fatal("Failed to connect to database:", err)
-	//}
-	//defer db.Close()
 
 	storage, err := postgres.NewConnection()
 	if err != nil {
 		log.Fatal("Failed to connect to database:", err)
 	}
 	defer storage.Close()
-
+	//получение соединения для миграции
+	db := storage.GetDB()
+	// Выполние миграции
+	log.Println("Running database migration...")
+	if err := postgres.RunMigration(db); err != nil {
+		log.Fatal("Failed to run migration:", err)
+	}
 	userService := services.NewUserService(storage)
 	api.SetService(userService)
 	server := api.New(userService)

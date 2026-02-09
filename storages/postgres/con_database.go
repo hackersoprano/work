@@ -21,6 +21,11 @@ type Storage struct {
 	db *sqlx.DB
 }
 
+// миграция
+func (s *Storage) GetDB() *sql.DB {
+	return s.db.DB
+}
+
 func NewConnection() (*Storage, error) {
 	dbConnStr := os.Getenv("DATABASE_URL") //проверка переменной в docker
 	if dbConnStr == "" {                   //если пустой, то вручную задаем

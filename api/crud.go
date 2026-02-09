@@ -57,8 +57,7 @@ func CreateUser(c echo.Context) error {
 func UpdateUser(c echo.Context) error {
 	ctx, cancel := context.WithTimeout(c.Request().Context(), GetTimeout)
 	defer cancel()
-	idStr := c.Param("id")
-	id, err := strconv.Atoi(idStr)
+	id, err := strconv.Atoi(c.Param("id"))
 	if err != nil {
 		return c.JSON(http.StatusBadRequest,
 			map[string]string{"error": "Ошибка ID формата"})
@@ -70,7 +69,6 @@ func UpdateUser(c echo.Context) error {
 			map[string]string{"error": "Недопустимое значение"})
 	}
 
-	// Используем интерфейс UserService
 	err = userService.UpdateUser(ctx, id, user)
 	if err != nil {
 		return c.JSON(http.StatusInternalServerError,

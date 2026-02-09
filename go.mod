@@ -3,6 +3,7 @@ module work
 go 1.25
 
 require (
+	github.com/golang-migrate/migrate/v4 v4.18.2
 	github.com/golang-jwt/jwt/v5 v5.3.0 // indirect
 	github.com/jmoiron/sqlx v1.4.0 // indirect
 	github.com/labstack/echo/v4 v4.15.0 // indirect

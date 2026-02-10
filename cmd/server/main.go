@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"embed"
 	"log"
 	"os/signal"
 	"syscall"
@@ -10,7 +11,14 @@ import (
 	"work/storages/postgres"
 )
 
+const migrationsDir = "migrations"
+
+//go:embed migrations/*.sql
+var MigrationsFS embed.FS
+
 func main() {
+	// восстановить миграцию
+	migrator := postgres.MustGetNewMigrator(MigrationsFS, migrationsDir)
 	// Инициализация БД
 
 	storage, err := postgres.NewConnection()
@@ -18,13 +26,14 @@ func main() {
 		log.Fatal("Failed to connect to database:", err)
 	}
 	defer storage.Close()
-	//получение соединения для миграции
-	db := storage.GetDB()
-	// Выполние миграции
-	log.Println("Running database migration...")
-	if err := postgres.RunMigration(db); err != nil {
-		log.Fatal("Failed to run migration:", err)
+
+	//приминение миграции
+	err = migrator.ApplyMigrations(storage)
+	if err != nil {
+		panic(err)
 	}
+	log.Printf("Миграции применены!!")
+
 	userService := services.NewUserService(storage)
 	api.SetService(userService)
 	server := api.New(userService)

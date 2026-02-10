@@ -14,9 +14,6 @@ import (
 	_ "github.com/lib/pq"
 )
 
-var db *sqlx.DB
-var err error
-
 type Storage struct {
 	db *sqlx.DB
 }
@@ -26,7 +23,7 @@ func NewConnection() (*Storage, error) {
 	if dbConnStr == "" {                   //если пустой, то вручную задаем
 		dbConnStr = "postgresql://postgres:postgres@db:5432/workspace?sslmode=disable"
 	}
-	db, err = sqlx.Open("postgres", dbConnStr) //используем библиотеку postgres
+	db, err := sqlx.Open("postgres", dbConnStr) //используем библиотеку postgres
 	if err != nil {
 		log.Fatal(err)
 	}

@@ -12,9 +12,9 @@ services:
       - "5432:5432"
     volumes:
       - ./postgres:/var/lib/postgresql/data
-      - ./init:/init
-    post_start:
-      - command: /bin/bash -c "chmod +x /init/initscript.sh && /init/initscript.sh > /init/tmp.log"
+      #- ./init:/init
+    #post_start:
+     # - command: /bin/bash -c "chmod +x /init/initscript.sh && /init/initscript.sh > /init/tmp.log"
     networks:
       - app-network
         #healthcheck:

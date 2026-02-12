@@ -68,8 +68,8 @@ func UpdateUser(c echo.Context) error {
 		return c.JSON(http.StatusBadRequest,
 			map[string]string{"error": "Недопустимое значение"})
 	}
-
-	err = userService.UpdateUser(ctx, id, user)
+	user.ID = id
+	err = userService.UpdateUser(ctx, user)
 	if err != nil {
 		return c.JSON(http.StatusInternalServerError,
 			map[string]string{"error": err.Error()})

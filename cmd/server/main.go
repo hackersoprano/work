@@ -3,7 +3,9 @@ package main
 import (
 	"context"
 	"embed"
+	"errors"
 	"log"
+	"net/http"
 	"os/signal"
 	"syscall"
 	"work/api"
@@ -42,7 +44,9 @@ func main() {
 
 	go func() {
 		log.Println("Starting server")
-		_ = server.Run(":8080")
+		if err = server.Run(":8080"); err != nil && !errors.Is(err, http.ErrServerClosed) {
+			log.Fatal(err)
+		}
 	}()
 
 	<-ctx.Done()

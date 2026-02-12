@@ -45,8 +45,12 @@ func (m *Migrator) ApplyMigrations(storage *Storage) error {
 	}
 
 	// Закрываем мигратор в конце работы функции.
+	// Закрываем мигратор в конце работы функции.
 	defer func() {
-		migrator.Close()
+
+		if migrator != nil || errors.Is(err, migrate.ErrNoChange) {
+			migrator.Close()
+		}
 	}()
 
 	// Применяем миграции.

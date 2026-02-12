@@ -41,25 +41,35 @@ func (s *UserServiceDb) GetAllUsers(ctx context.Context) ([]models.AllUser, erro
 }
 
 func (s *UserServiceDb) CreateUser(ctx context.Context, user *models.User) error {
+	tx, txCtx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback() // откат, если не сделан Commit
 	// Хэшируем пароль
 	user.Password = HashPassword(user.Password)
 	if user.Role == "" {
 		user.Role = "user"
 	}
-	err := s.db.CreateUser(ctx, user)
+	err = s.db.CreateUser(txCtx, user)
 	if err != nil {
 		if strings.Contains(err.Error(), "unique") || strings.Contains(err.Error(), "duplicate") {
 			return errors.New("пользователь уже существует")
 		}
+		tx.Rollback()
 		return err
 	}
 
-	return nil
+	return tx.Commit()
 }
 
-func (s *UserServiceDb) UpdateUser(ctx context.Context, id int, user *models.User) error {
-	user.ID = id
-	currentUser, err := s.db.GetUserById(ctx, id)
+func (s *UserServiceDb) UpdateUser(ctx context.Context, user *models.User) error {
+	tx, txCtx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+	currentUser, err := s.db.GetUserById(txCtx, user.ID)
 	if err != nil && !errors.Is(err, sql.ErrNoRows) {
 		return err
 	}
@@ -77,9 +87,23 @@ func (s *UserServiceDb) UpdateUser(ctx context.Context, id int, user *models.Use
 	} else {
 		user.Password = HashPassword(user.Password)
 	}
-	return s.db.UpdateUser(ctx, user)
+	err = s.db.UpdateUser(txCtx, user)
+	if err != nil {
+		return err
+	}
+	return tx.Commit()
 }
 
 func (s *UserServiceDb) DeleteUser(ctx context.Context, id int) error {
-	return s.db.DeleteUser(ctx, id)
+	tx, txCtx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+	err = s.db.DeleteUser(txCtx, id)
+	if err != nil {
+		return err
+	}
+
+	return tx.Commit()
 }

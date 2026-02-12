@@ -12,20 +12,16 @@ services:
       - "5432:5432"
     volumes:
       - ./postgres:/var/lib/postgresql/data
-      #- ./init:/init
-    #post_start:
-     # - command: /bin/bash -c "chmod +x /init/initscript.sh && /init/initscript.sh > /init/tmp.log"
     networks:
       - app-network
-        #healthcheck:
-        #test: [ "CMD-SHELL", "pg_isready -U postgres -d workspace" ]
-        #interval: 10s
-        #timeout: 5s
-        #retries: 5
-        #start_period: 30s
-        #restart: unless-stopped
+    healthcheck: # <-- ДОБАВИТЬ
+      test: [ "CMD-SHELL", "pg_isready -U postgres -d workspace" ]
+      interval: 5s                    # Проверять каждые 5 секунд
+      timeout: 5s                    # Таймаут выполнения команды
+      retries: 5                    # Количество попыток до "unhealthy"
+      start_period: 60s            # Подождать 30с перед первой проверкой
   app:
-    #image: go-auth-app:0.1
+
     build:
       context: .
       dockerfile: build/Dockerfile
@@ -35,7 +31,8 @@ services:
       - DATABASE_URL=postgresql://postgres:postgres@db:5432/workspace?sslmode=disable
       - JWT_SECRET=MySuperSecretKeyForJWT_2026!
     depends_on:
-      - db 
+      db:
+        condition: service_healthy
     networks:
       - app-network
 

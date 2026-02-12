@@ -9,10 +9,26 @@ import (
 	"os"
 	"strings"
 	"work/models"
+	"work/services"
 
 	"github.com/jmoiron/sqlx"
 	_ "github.com/lib/pq"
 )
+
+type contextKey string
+
+const txKey = contextKey("tx")
+
+// WithTx помещает транзакцию в контекст.
+func WithTx(ctx context.Context, tx *sqlx.Tx) context.Context {
+	return context.WithValue(ctx, txKey, tx)
+}
+
+// GetTx извлекает транзакцию из контекста, если она там есть.
+func GetTx(ctx context.Context) (*sqlx.Tx, bool) {
+	tx, ok := ctx.Value(txKey).(*sqlx.Tx)
+	return tx, ok
+}
 
 type Storage struct {
 	db *sqlx.DB
@@ -40,9 +56,24 @@ func NewConnection() (*Storage, error) {
 func (s *Storage) Close() error {
 	return s.db.Close()
 }
+
+// BeginTx начинает транзакцию и возвращает Transaction, контекст с транзакцией и ошибку.
+func (s *Storage) BeginTx(ctx context.Context, opts *sql.TxOptions) (services.Transaction, context.Context, error) {
+	tx, err := s.db.BeginTxx(ctx, opts)
+	if err != nil {
+		return nil, ctx, err
+	}
+	return tx, WithTx(ctx, tx), nil
+}
+
 func (s *Storage) GetUserByLogin(ctx context.Context, login string) (*models.User, error) {
 	var user models.User
-	err := s.db.GetContext(ctx, &user, "SELECT * FROM users WHERE login = $1", login)
+	var err error
+	if tx, ok := GetTx(ctx); ok {
+		err = tx.GetContext(ctx, &user, "SELECT * FROM users WHERE login = $1", login)
+	} else {
+		err = s.db.GetContext(ctx, &user, "SELECT * FROM users WHERE login = $1", login)
+	}
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return nil, errors.New("пользователь не найден")
@@ -53,7 +84,12 @@ func (s *Storage) GetUserByLogin(ctx context.Context, login string) (*models.Use
 }
 func (s *Storage) GetUserById(ctx context.Context, id int) (*models.User, error) {
 	var user models.User
-	err := s.db.GetContext(ctx, &user, "SELECT * FROM users where id = $1", id)
+	var err error
+	if tx, ok := GetTx(ctx); ok {
+		err = tx.GetContext(ctx, &user, "SELECT * FROM users WHERE id = $1", id)
+	} else {
+		err = s.db.GetContext(ctx, &user, "SELECT * FROM users WHERE id = $1", id)
+	}
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return nil, errors.New("Пользователь не найден")
@@ -64,18 +100,29 @@ func (s *Storage) GetUserById(ctx context.Context, id int) (*models.User, error)
 }
 func (s *Storage) GetAllUsers(ctx context.Context) ([]models.AllUser, error) {
 	var users []models.AllUser
-	err := s.db.SelectContext(ctx, &users, "SELECT id, login, role FROM users ORDER BY login")
+	var err error
+	if tx, ok := GetTx(ctx); ok {
+		err = tx.SelectContext(ctx, &users, "SELECT id, login, role FROM users ORDER BY login")
+	} else {
+		err = s.db.SelectContext(ctx, &users, "SELECT id, login, role FROM users ORDER BY login")
+	}
 	if err != nil {
 		return nil, err
 	}
 	return users, nil
 }
 func (s *Storage) CreateUser(ctx context.Context, user *models.User) error {
+	var err error
+	var rows *sqlx.Rows
 	query := `INSERT INTO users (login, password, role) 
 	          VALUES (:login, :password, :role) 
 	          RETURNING id`
 
-	rows, err := s.db.NamedQueryContext(ctx, query, user)
+	if tx, ok := GetTx(ctx); ok {
+		rows, err = tx.NamedQuery(query, user)
+	} else {
+		rows, err = s.db.NamedQueryContext(ctx, query, user)
+	}
 	if err != nil {
 		if strings.Contains(err.Error(), "unique") || strings.Contains(err.Error(), "duplicate") {
 			return errors.New("пользователь уже существует")
@@ -93,10 +140,16 @@ func (s *Storage) CreateUser(ctx context.Context, user *models.User) error {
 	return nil
 }
 func (s *Storage) UpdateUser(ctx context.Context, user *models.User) error {
+	var err error
+	var result sql.Result
 	query := `UPDATE users 
               SET login = :login, password = :password, role = :role 
               WHERE id = :id`
-	result, err := s.db.NamedExecContext(ctx, query, user)
+	if tx, ok := GetTx(ctx); ok {
+		result, err = tx.NamedExecContext(ctx, query, user)
+	} else {
+		result, err = s.db.NamedExecContext(ctx, query, user)
+	}
 	if err != nil {
 		return err
 	}
@@ -111,7 +164,13 @@ func (s *Storage) UpdateUser(ctx context.Context, user *models.User) error {
 	return nil
 }
 func (s *Storage) DeleteUser(ctx context.Context, id int) error {
-	result, err := s.db.ExecContext(ctx, "DELETE FROM users WHERE id = $1", id)
+	var err error
+	var result sql.Result
+	if tx, ok := GetTx(ctx); ok {
+		result, err = tx.ExecContext(ctx, "DELETE FROM users WHERE id = $1", id)
+	} else {
+		result, err = s.db.ExecContext(ctx, "DELETE FROM users WHERE id = $1", id)
+	}
 	if err != nil {
 		return err
 	}

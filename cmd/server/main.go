@@ -2,7 +2,10 @@ package main
 
 import (
 	"context"
+	"embed"
+	"errors"
 	"log"
+	"net/http"
 	"os/signal"
 	"syscall"
 	"work/api"
@@ -10,19 +13,28 @@ import (
 	"work/storages/postgres"
 )
 
+const migrationsDir = "migrations"
+
+//go:embed migrations/*.sql
+var MigrationsFS embed.FS
+
 func main() {
+	// восстановить миграцию
+	migrator := postgres.MustGetNewMigrator(MigrationsFS, migrationsDir)
 	// Инициализация БД
-	//db, err := postgres.NewConnection()
-	//if err != nil {
-	//	log.Fatal("Failed to connect to database:", err)
-	//}
-	//defer db.Close()
 
 	storage, err := postgres.NewConnection()
 	if err != nil {
 		log.Fatal("Failed to connect to database:", err)
 	}
 	defer storage.Close()
+
+	//приминение миграции
+	err = migrator.ApplyMigrations(storage)
+	if err != nil {
+		panic(err)
+	}
+	log.Printf("Миграции применены!!")
 
 	userService := services.NewUserService(storage)
 	api.SetService(userService)
@@ -32,7 +44,9 @@ func main() {
 
 	go func() {
 		log.Println("Starting server")
-		_ = server.Run(":8080")
+		if err = server.Run(":8080"); err != nil && !errors.Is(err, http.ErrServerClosed) {
+			log.Fatal(err)
+		}
 	}()
 
 	<-ctx.Done()
